@@ -1,148 +1,150 @@
-# Local Sony WH-1000XM4 Quiet English Voice Pack
+# Sony WH-1000XM4 Quiet English Voice Pack
 
-This project creates a custom voice guidance pack for the Sony WH-1000XM4 headphones, where all English voice prompts are set to a quieter volume. 
+This repo contains quieted English voice-guidance packs for the Sony
+WH-1000XM4. Each pack keeps the original English prompts, but reduces their
+volume and stores them in a different Sony language slot so the headphones do
+not fall back to the stock pack.
 
-To prevent the headphones from falling back to stock voice prompts (which happens if you install over the same language slot), we pack the quieter English voice prompts into alternative target slots. 
-
-By using different target slots, you can install **multiple** custom volume levels on your headphones simultaneously and toggle between them directly inside the app.
-
----
-
-## Language Assignments
-
-We have mapped the custom English voice guidance packs to the 9 available non-English language slots. They correspond directly to the order of languages in the Sony app's settings:
-
-*   **5% Volume** is stored under **French (Français)**
-*   **2.5% Volume** is stored under **German (Deutsch)**
-*   **1% Volume** is stored under **Spanish (Español)**
-*   **60% Volume** is stored under **Italian (Italiano)**
-*   **50% Volume** is stored under **Portuguese (Português)**
-*   **40% Volume** is stored under **Dutch (Nederlands)**
-*   **30% Volume** is stored under **Swedish (Svenska)**
-*   **20% Volume** is stored under **Finnish (Suomi)**
-*   **10% Volume** is stored under **Turkish (Türkçe)**
-*   **100% Volume (Stock)** remains active under **English (English)**
-
-Once these packs are installed, you can toggle between all these volume levels directly inside the Sony Headphones Connect app without running the proxy server again!
-
-The filenames intentionally say `english_*_in_*_slot`: the audio inside each pack is quieted English, while the named language is only the Sony app slot used to store it.
+The practical result is simple: you can install several quieter English presets
+once, then switch between them in the Sony Headphones Connect app by changing
+language.
 
 ---
 
-## What Was Created
+## Volume presets
 
-1. **`make_quiet_english_pack.sh`**: A shell script that automates downloading the official voice packs, extracting individual prompts, reducing the volume to a chosen amplitude, and packing the custom binaries for any target language code.
-2. **`build_all_increments.sh`**: Helper script to generate all 9 packs in one batch.
-3. **`slots/`**: A folder containing all the extracted original English voice guidance MP3 prompts.
-4. **`english_5pct_in_french_slot.bin` / `english_5pct_in_french_slot_info.xml`**
-5. **`english_2_5pct_in_german_slot.bin` / `english_2_5pct_in_german_slot_info.xml`**
-6. **`english_1pct_in_spanish_slot.bin` / `english_1pct_in_spanish_slot_info.xml`**
-7. **`english_60pct_in_italian_slot.bin` / `english_60pct_in_italian_slot_info.xml`**
-8. **`english_50pct_in_portuguese_slot.bin` / `english_50pct_in_portuguese_slot_info.xml`**
-9. **`english_40pct_in_dutch_slot.bin` / `english_40pct_in_dutch_slot_info.xml`**
-10. **`english_30pct_in_swedish_slot.bin` / `english_30pct_in_swedish_slot_info.xml`**
-11. **`english_20pct_in_finnish_slot.bin` / `english_20pct_in_finnish_slot_info.xml`**
-12. **`english_10pct_in_turkish_slot.bin` / `english_10pct_in_turkish_slot_info.xml`**
+The pack filenames tell you two things:
 
-Older ambiguous outputs, if present, are kept in **`legacy_ambiguous_outputs/`** and should not be used for normal installation. The replaced 90%, 80%, and 70% packs are kept in **`legacy_replaced_volume_outputs/`**.
+- `english_<volume>`: the audio is English at that reduced volume
+- `in_<language>_slot`: the Sony app language slot used to store it
+
+| Volume | App language |
+|--------|--------------|
+| 5%     | French       |
+| 2.5%   | German       |
+| 1%     | Spanish      |
+| 60%    | Italian      |
+| 50%    | Portuguese   |
+| 40%    | Dutch        |
+| 30%    | Swedish      |
+| 20%    | Finnish      |
+| 10%    | Turkish      |
+| 100%   | English stock |
+
+Once installed, these appear in the app as normal language choices, but the
+audio played is quiet English.
 
 ---
 
-## Installation Process
+## Files that matter
 
-The local proxy script (`swap_vp.py`) will serve whichever files are currently named **`patched.bin`** and **`patched_info.xml`**. You will install the packs one at a time by copying a matching `.bin` and `_info.xml` pair into those active proxy filenames.
+| Path | Purpose |
+|------|---------|
+| `swap_vp.py` | mitmproxy addon that serves the active pack |
+| `patched.bin` | Active voice-pack payload served by the proxy |
+| `patched_info.xml` | Active matching metadata served by the proxy |
+| `english_*_slot.bin` | Prebuilt quiet English pack |
+| `english_*_slot_info.xml` | Matching metadata for that pack |
+| `make_quiet_english_pack.sh` | Rebuild one pack |
+| `build_all_increments.sh` | Rebuild the full preset set |
 
-### Step 1: Run the Proxy Server
-Start `mitmdump` on your computer:
+Do not mix a `.bin` from one preset with an `_info.xml` from another preset.
+
+---
+
+## Install one or more presets
+
+### 1. Start the proxy
+
 ```bash
 mitmdump -s swap_vp.py --listen-port 8080
 ```
 
-### Step 2: Configure Mobile Device Proxy
-1. Find your computer's local IP address (e.g. `192.168.1.X`).
-2. On your phone, go to **Settings → Wi-Fi**, tap your connected network, select **Configure Proxy → Manual**, and enter your computer's IP as Server and `8080` as Port. Save it.
-3. Open Safari or Chrome on your phone, navigate to `http://mitm.it`, download the profile, and install it.
-4. **CRITICAL**: Go to **Settings → General → About → Certificate Trust Settings** and enable full trust for the `mitmproxy` root certificate.
+### 2. Configure the phone
 
-### Step 3: Flash the Volume Levels (One by One)
-For each volume level you want to install, run the copy commands to activate the pack, then select the target language in the **Sony Headphones Connect** app and trigger the voice guidance install:
+1. Find your computer's local IP address.
+2. On the phone, open `Settings > Wi-Fi > <your network> > Configure Proxy`.
+3. Set the proxy to `Manual`.
+4. Enter your computer IP and port `8080`.
+5. In Safari on the phone, open `http://mitm.it`.
+6. Install the `mitmproxy` certificate profile.
+7. In `Settings > General > About > Certificate Trust Settings`, fully trust
+   the `mitmproxy` root certificate.
 
-*   **To Install 5% (French)**:
-    ```bash
-    cp english_5pct_in_french_slot.bin patched.bin
-    cp english_5pct_in_french_slot_info.xml patched_info.xml
-    ```
-    *Trigger "French" in the app.*
-*   **To Install 2.5% (German)**:
-    ```bash
-    cp english_2_5pct_in_german_slot.bin patched.bin
-    cp english_2_5pct_in_german_slot_info.xml patched_info.xml
-    ```
-    *Trigger "German" in the app.*
-*   **To Install 1% (Spanish)**:
-    ```bash
-    cp english_1pct_in_spanish_slot.bin patched.bin
-    cp english_1pct_in_spanish_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Spanish" in the app.*
-*   **To Install 60% (Italian)**:
-    ```bash
-    cp english_60pct_in_italian_slot.bin patched.bin
-    cp english_60pct_in_italian_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Italian" in the app.*
-*   **To Install 50% (Portuguese)**:
-    ```bash
-    cp english_50pct_in_portuguese_slot.bin patched.bin
-    cp english_50pct_in_portuguese_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Portuguese" in the app.*
-*   **To Install 40% (Dutch)**:
-    ```bash
-    cp english_40pct_in_dutch_slot.bin patched.bin
-    cp english_40pct_in_dutch_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Dutch" in the app.*
-*   **To Install 30% (Swedish)**:
-    ```bash
-    cp english_30pct_in_swedish_slot.bin patched.bin
-    cp english_30pct_in_swedish_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Swedish" in the app.*
-*   **To Install 20% (Finnish)**:
-    ```bash
-    cp english_20pct_in_finnish_slot.bin patched.bin
-    cp english_20pct_in_finnish_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Finnish" in the app.*
-*   **To Install 10% (Turkish)**:
-    ```bash
-    cp english_10pct_in_turkish_slot.bin patched.bin
-    cp english_10pct_in_turkish_slot_info.xml patched_info.xml
-    ```
-    *Trigger "Turkish" in the app.*
+### 3. Choose a preset and make it active
 
-Do not mix files from different rows. The active `patched.bin` and `patched_info.xml` must always come from the same volume/language-slot pair.
+Copy the matching pair you want into the filenames the proxy serves.
 
-### Step 4: Clean Up Proxy Settings
-1. On your mobile device, turn the Wi-Fi proxy setting back to **Off**.
-2. Go to **VPN & Device Management** on your phone and remove the `mitmproxy` profile.
-3. Terminate `mitmdump` on your computer (`Ctrl + C`).
+Example for 30% volume:
+
+```bash
+cp english_30pct_in_swedish_slot.bin patched.bin
+cp english_30pct_in_swedish_slot_info.xml patched_info.xml
+```
+
+Preset mapping:
+
+| Volume | Commands | App language to install |
+|--------|----------|-------------------------|
+| 5% | `cp english_5pct_in_french_slot.bin patched.bin` and `cp english_5pct_in_french_slot_info.xml patched_info.xml` | French |
+| 2.5% | `cp english_2_5pct_in_german_slot.bin patched.bin` and `cp english_2_5pct_in_german_slot_info.xml patched_info.xml` | German |
+| 1% | `cp english_1pct_in_spanish_slot.bin patched.bin` and `cp english_1pct_in_spanish_slot_info.xml patched_info.xml` | Spanish |
+| 60% | `cp english_60pct_in_italian_slot.bin patched.bin` and `cp english_60pct_in_italian_slot_info.xml patched_info.xml` | Italian |
+| 50% | `cp english_50pct_in_portuguese_slot.bin patched.bin` and `cp english_50pct_in_portuguese_slot_info.xml patched_info.xml` | Portuguese |
+| 40% | `cp english_40pct_in_dutch_slot.bin patched.bin` and `cp english_40pct_in_dutch_slot_info.xml patched_info.xml` | Dutch |
+| 30% | `cp english_30pct_in_swedish_slot.bin patched.bin` and `cp english_30pct_in_swedish_slot_info.xml patched_info.xml` | Swedish |
+| 20% | `cp english_20pct_in_finnish_slot.bin patched.bin` and `cp english_20pct_in_finnish_slot_info.xml patched_info.xml` | Finnish |
+| 10% | `cp english_10pct_in_turkish_slot.bin patched.bin` and `cp english_10pct_in_turkish_slot_info.xml patched_info.xml` | Turkish |
+
+### 4. Install it from Sony Headphones Connect
+
+1. Open Sony Headphones Connect on the phone.
+2. Go to Voice Guidance Language.
+3. Select the app language for the preset you activated.
+4. Let the download and install finish.
+
+Repeat Step 3 and Step 4 for any other presets you want installed. After that,
+you can switch between those installed quiet levels directly in the app without
+running the build pipeline again.
+
+### 5. Clean up
+
+1. Turn the Wi-Fi proxy back off on the phone.
+2. Remove the `mitmproxy` profile if you no longer need it.
+3. Stop `mitmdump`.
 
 ---
 
-## How to Revert to Stock Voice Prompts
+## Revert to stock English
 
-If you want to restore the official, loud Sony voice guidance prompts:
-1. Ensure the `mitmdump` proxy is **not** running (so your phone traffic goes directly to Sony's CDN).
-2. Open the **Sony Headphones Connect** app.
-3. Go to **Voice Guidance Language** and switch back to **English** (or select the respective language again).
-4. The app will fetch the official, unmodified voice pack from Sony's CDN and overwrite the custom pack.
+To go back to the official Sony prompts:
+
+1. Make sure the proxy is off.
+2. Open Sony Headphones Connect.
+3. Switch Voice Guidance Language back to English.
+4. Let the app fetch the official pack from Sony.
 
 ---
 
-## Remaining Risks & Security Warnings
+## Rebuild the packs
+
+If you want to regenerate the pack set instead of using the prebuilt files:
+
+```bash
+./make_quiet_english_pack.sh
+./build_all_increments.sh
+```
+
+The repo also keeps older experiments in `legacy_ambiguous_outputs/` and
+`legacy_replaced_volume_outputs/`. Those are archival outputs, not the normal
+installation targets.
+
+---
+
+## Risks
 
 > [!CAUTION]
-> - **Proxy Certificate Risk**: A trusted root certificate allows the proxy server to decrypt HTTPS traffic. Remove the certificate from your phone immediately after installation.
-> - **Bricking Hazard**: While the script recomputes integrity signatures correctly, updating voice guidance partition carries a minimal risk. Proceed at your own risk.
+> - Trusting the `mitmproxy` certificate allows HTTPS interception on the phone
+>   while that certificate remains trusted.
+> - Voice-pack flashing is lower risk than firmware flashing, but it is still a
+>   device modification and carries some chance of failure.
