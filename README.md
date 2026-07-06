@@ -1,208 +1,137 @@
-# Sony WH-1000XM4 voice-pack mod
+# Sony WH-1000XM4 Quiet English Voice Pack
 
-Replace the Sony voice prompts on Sony WH-1000XM4 headphones with custom audio
-(Apple AirPods chimes, Zelda jingles, anything you want). Working as of
-firmware **3.0.1**.
+Custom Sony WH-1000XM4 voice-guidance packs with the original English prompts
+reduced to quieter volume levels, then stored in alternate language slots so
+they can be installed reliably and switched inside the Sony Headphones Connect
+app.
 
-> **What this is**: a packer that builds a Sony-format voice pack with custom
-> MP3s in any of the 54 slots, a forged manifest that matches it, and a
-> mitmproxy addon that serves both to the iPhone Sony Headphones Connect app
-> when it goes to download a voice pack from Sony's CDN.
+This repository is no longer just the original voice-pack modding toolkit. It
+packages a specific end result:
 
-**Why this took two long sessions to get right:** the .bin file's first 32
-bytes are `SHA-256(file[0x100:end])` — a device-side integrity check
-verified at install time. We initially mislabeled them "32 random bytes /
-file ID" and burned a lot of time on dead-end theories. See [NOTES.md §16][16]
-for the full Ghidra reverse-engineering story.
+- quiet English voice packs at multiple volume levels
+- build scripts for regenerating those packs
+- the proxy and packer tooling needed to install or rebuild them
 
-[16]: NOTES.md
+The upstream reverse-engineering and pack-format work still lives here because
+the quiet packs depend on it, but the main project is the quiet English pack
+set.
 
 ---
 
-## Quick start
+## Included voice-pack slots
 
-### 1. Prerequisites
+Each pack contains English audio, but is installed into a non-English Sony app
+language slot to avoid fallback to the stock prompts.
 
-```bash
-# Tools assumed in PATH
-uv      # github.com/astral-sh/uv (runs the Python scripts with deps)
-ffmpeg  # for converting custom audio to 48kHz mono 64kbps MP3
-mitmdump # mitmproxy
+| Volume | Sony app language slot |
+|--------|------------------------|
+| 5%     | French                 |
+| 2.5%   | German                 |
+| 1%     | Spanish                |
+| 60%    | Italian                |
+| 50%    | Portuguese             |
+| 40%    | Dutch                  |
+| 30%    | Swedish                |
+| 20%    | Finnish                |
+| 10%    | Turkish                |
+| 100%   | English stock prompts  |
+
+Generated files in the repo follow this naming pattern:
+
+```text
+english_<volume>_in_<language>_slot.bin
+english_<volume>_in_<language>_slot_info.xml
 ```
 
-### 2. Get a Sony voice pack as starting material
+---
 
-```bash
-mkdir -p voice-packs
-curl -fsSL -o voice-packs/VP_spanish_UPG_03.bin \
-  https://info.update.sony.net/HP002/VGIDLPB0404/contents/0002/VP_spanish_UPG_03.bin
-```
+## Repo contents
 
-Language code reference (`VGIDLPB04XX`):
+| Path | Purpose |
+|------|---------|
+| `README_LOCAL.md` | Detailed local install workflow |
+| `make_quiet_english_pack.sh` | Build one quiet English pack for a target slot |
+| `build_all_increments.sh` | Build the full preset volume set |
+| `quiet_slots/` | Extracted quiet English MP3 prompt slots |
+| `swap_vp.py` | mitmproxy addon that serves the active patched files |
+| `pack_voice_pack.py` | Rebuild Sony-format `.bin` voice packs |
+| `pack_info_xml.py` | Forge matching `info.xml` metadata |
+| `extract_slots.py` | Extract MP3 slots from an official Sony pack |
+| `NOTES.md` | Reverse-engineering notes and format details |
 
-| XX | Language     | URL fragment                |
-|----|--------------|-----------------------------|
-| 01 | english      | `VP_english_UPG_03.bin`     |
-| 02 | french       | `VP_french_UPG_03.bin`      |
-| 03 | german       | `VP_german_UPG_03.bin`      |
-| 04 | spanish      | `VP_spanish_UPG_03.bin`     |
-| 05 | italian      | `VP_italian_UPG_03.bin`     |
-| 06 | portuguese   | `VP_portuguese_UPG_03.bin`  |
-| 07 | dutch        | `VP_dutch_UPG_03.bin`       |
-| 08 | swedish      | `VP_swedish_UPG_03.bin`     |
-| 09 | finnish      | `VP_finnish_UPG_03.bin`     |
-| 10 | turkish      | `VP_turkish_UPG_03.bin`     |
+Legacy experiment outputs are kept in `legacy_ambiguous_outputs/` and
+`legacy_replaced_volume_outputs/` for reference, not normal use.
 
-Also grab a copy of an `info.xml` (used as a template for the forged
-manifest — any language works, the packer rewrites it):
+---
 
-```bash
-curl -fsSL -o info_english.bin \
-  https://info.update.sony.net/HP002/VGIDLPB0401/info/info.xml
-```
+## Quick install flow
 
-### 3. Convert your custom audio
-
-Voice-pack slots expect **48 kHz mono 64 kbps MP3**. Convert anything else:
-
-```bash
-ffmpeg -i input.flac -ar 48000 -ac 1 -b:a 64k apple_chimes/my_sound.mp3
-```
-
-The repo includes a starter set in `apple_chimes/` — Apple AirPods chimes
-+ a couple of extras.
-
-### 4. Build the payload
-
-```bash
-# Pack: replace slots 6/7/8 (NC, ASC off, Ambient) with Apple chimes
-uv run pack_voice_pack.py voice-packs/VP_spanish_UPG_03.bin patched.bin \
-  --mp3 6=apple_chimes/noiseCancellation.mp3 \
-  --mp3 7=apple_chimes/noiseControlOff.mp3 \
-  --mp3 8=apple_chimes/transparency.mp3
-
-# Forge the matching manifest (rewrites lang refs inside the XML)
-uv run pack_info_xml.py info_english.bin patched.bin \
-  --lang-pack VGIDLPB0404 --rewrite-lang \
-  --out patched_info.xml
-```
-
-### 5. Install
+### 1. Start the proxy
 
 ```bash
 mitmdump -s swap_vp.py --listen-port 8080
 ```
 
-On your iPhone:
-1. Settings → Wi-Fi → (your network) → manual proxy → laptop IP, port 8080.
-2. Install the mitmproxy CA: visit `http://mitm.it` in Safari with the
-   proxy active, install + fully trust the cert in Settings → General →
-   About → Certificate Trust Settings.
+### 2. Activate one pack
+
+Example for 30% volume in the Swedish slot:
+
+```bash
+cp english_30pct_in_swedish_slot.bin patched.bin
+cp english_30pct_in_swedish_slot_info.xml patched_info.xml
+```
+
+### 3. Install from the iPhone app
+
+1. Point the phone's Wi-Fi proxy at your computer on port `8080`.
+2. Install and trust the mitmproxy certificate from `http://mitm.it`.
 3. Open Sony Headphones Connect.
-4. Change voice guidance language to **whichever language you packed**.
-   The proxy will swap the manifest and the .bin during download.
-5. Wait for install to complete (it'll reach 100% — the SHA-256 fix is
-   what gets it past the 99% wall).
+4. Choose the matching language slot in Voice Guidance Language.
+5. Let the install finish.
+
+Repeat with other pack pairs if you want multiple quiet levels available on the
+headphones at once.
+
+For the full step-by-step procedure, see
+[README_LOCAL.md](/Volumes/Kimtigo%20TP3000%201TB/Documents/GitHub/sony-wh-1000xm4-quiet-voice-pack/README_LOCAL.md:1).
 
 ---
 
-## Slot index → prompt mapping
+## Rebuilding packs
 
-| Slot | Default prompt                | Notes                              |
-|------|-------------------------------|------------------------------------|
-| 0    | Power on                      |                                    |
-| 1    | Power off                     |                                    |
-| 2    | Bluetooth pairing             |                                    |
-| 3    | Bluetooth connected           |                                    |
-| 4    | Bluetooth disconnected        |                                    |
-| 5    | Recharge / power off          | Battery low                        |
-| 6    | Noise canceling               |                                    |
-| 7    | Ambient Sound Control off     |                                    |
-| 8    | Ambient sound                 |                                    |
-| 9    | (assistant-related)           |                                    |
-| 10–14| Notification tones / chimes   | Short clips                        |
-| 15   | Battery fully charged         |                                    |
-| 16–18, 28–33 | Battery percentages   |                                    |
-| 19–27 (mostly) | Various tones       |                                    |
-| 43–44| Speak-to-chat on/off          |                                    |
-| 47–53| BT device connect/disconnect  | Per-device announcements           |
+The repo includes the original modding pipeline if you want to regenerate or
+change the packs:
 
-Run `uv run extract_slots.py voice-packs/VP_english_UPG_03.bin slots/` to
-dump all 54 to listen-confirm.
+```bash
+./make_quiet_english_pack.sh
+./build_all_increments.sh
+```
+
+These scripts depend on the lower-level tooling in this repo plus external
+tools such as `uv`, `ffmpeg`, and `mitmdump`.
 
 ---
 
-## Important caveats
+## Important caveat
 
-### Cross-language install required
-
-Switching to the **same** language already on your headphones falls back
-silently to a default voice pack at runtime — install reports success
-but you hear stock Sony prompts. Always switch to a **different** language
-than what's currently active.
-
-Theory: the 6 MB voice partition holds multiple languages at different
-offsets. Switching language is just a "read from offset X" — the device
-caches what's already there. English specifically may be a factory-burned
-fallback that overrides anything we install at its slot. See [NOTES.md §17][17].
-
-[17]: NOTES.md
-
-**Practical pattern**: if you want English custom prompts on the
-headphones, install your custom payload as a *different* language (e.g.,
-Portuguese using `--lang-pack VGIDLPB0406 --rewrite-lang`), with all 54
-slots replaced by extracted English ones plus your custom overrides.
-The headphones store this in the unused Portuguese slot, and switching
-to Portuguese makes the runtime play your custom audio while saying
-English for the unreplaced prompts.
-
-### Disclaimer.xml MAC
-
-The forged manifest references `disclaimer.xml`. If you rewrite the
-manifest URI to a non-English language, the app will fetch *that
-language's* disclaimer from Sony's CDN, whose SHA-1 won't match what
-our manifest advertises. The proxy automatically intercepts
-`disclaimer.xml` requests and serves the bundled English copy
-(`disclaimer_english.xml` — its SHA-1 matches the inherited MAC).
-
-### Don't expect to mod English on a device that's been on English
-
-See "Cross-language install required" above. Same rule applies to
-whichever language was on the device when you started.
+Installing into the same language already active on the headphones can fall
+back to stock Sony prompts. That is why this project stores quiet English audio
+inside alternate language slots instead of replacing the active English slot
+directly.
 
 ---
 
-## What's in the repo
+## Credits
 
-| File                     | Purpose                                                           |
-|--------------------------|-------------------------------------------------------------------|
-| `pack_voice_pack.py`     | Build a custom `patched.bin` voice pack                           |
-| `pack_info_xml.py`       | Forge a matching `patched_info.xml` manifest                      |
-| `swap_vp.py`             | mitmproxy addon: serve patched files when Sony's CDN is hit       |
-| `extract_slots.py`       | Dump all 54 MP3 slots from a Sony VP_*.bin for listen-identifying |
-| `disclaimer_english.xml` | Cached English disclaimer; served on any language path            |
-| `apple_chimes/`          | Starter set of 48k/mono/64kbps MP3s (AirPods chimes + extras)     |
-| `NOTES.md`               | Full project writeup — formats, RE notes, every dead-end          |
-
----
-
-## Credits & references
+This project builds on the reverse-engineering work and format research that
+made WH-1000XM4 voice-pack repacking possible, especially:
 
 - [HelgeSverre/sony-vp-extract](https://github.com/HelgeSverre/sony-vp-extract)
-  — extractor + key-extraction script + writeup. Foundation that this
-  builds on.
-- AES key/IV: `eibohjeCh6uegahf` / `miefeinuShu9eilo` (extracted from
-  firmware — same across all WH-1000XM4 units).
-- `info.xml` decryption key: `4F A2 79 99 FF D0 8B 1F E4 D2 60 D5 7B 6D
-  3C 17` (extracted from `com.sony.songpal.automagic Y6.d` in the
-  decompiled iOS Sony Headphones Connect app).
+- the reverse-engineering notes preserved in `NOTES.md`
 
 ---
 
 ## Disclaimer
 
-This is for personal use on your own headphones. Sony's voice packs are
-copyrighted; don't redistribute the unmodified `VP_*.bin` files. The
-tooling here only operates on files you fetch from Sony's CDN yourself.
-
-If you brick your headphones, that's on you.
+Use this on your own headphones and at your own risk. Sony voice-pack assets
+remain copyrighted; do not redistribute official unmodified Sony files.
